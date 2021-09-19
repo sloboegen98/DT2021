@@ -5,7 +5,7 @@
 
 \func tail {A : \Type} (xs : List A) : List A \elim xs
   | nil => nil
-  | cons _ xs' => xs'
+  | :: _ xs' => xs'
 
 -- 2. Реализуйте любой (but choose wisely) алгоритм сортировки. Функцию сравнения можно принимать в качестве аргумента.
 
@@ -13,16 +13,16 @@
   \where {
     \func partition {A : \Type} (xs : List A) (comp : A -> A -> Bool) (pivot : A) (p q : List A) : \Sigma (List A) (List A) \elim xs
       | nil => (p, q)
-      | cons x xs => \case comp x pivot \with {
-        | true => partition xs comp pivot (cons x p) q
-        | false => partition xs comp pivot p (cons x q)
+      | :: x xs => \case comp x pivot \with {
+        | true => partition xs comp pivot (x :: p) q
+        | false => partition xs comp pivot p (x :: q)
       }
 
     \func sort' {A : \Type} (xs : List A) (comp : A -> A -> Bool) (fuel : Nat) : List A \elim fuel
       | zero => xs
       | suc fuel => \case xs \with {
         | nil => nil
-        | cons a xs => \case partition (cons a xs) comp a nil nil \with {
+        | :: a xs => \case partition (a :: xs) comp a nil nil \with {
           | (l1, l2) => sort' l1 comp fuel ++ sort' l2 comp fuel
         }
       }
@@ -35,8 +35,8 @@
   | suc x, suc y => x < y
 
 \func test : sort (List.nil {Nat}) (<) = List.nil => idp
-\func test' : sort (cons 3 (cons 2 nil)) (<) = (cons 2 (cons 3 nil)) => idp
-\func test'' : sort (cons 2 (cons 1 (cons 2 (cons 4 nil)))) (<) = (cons 1 (cons 2 (cons 2 (cons 4 nil)))) => idp
+\func test' : sort (3 :: 2 :: nil) (<) = (2 :: 3 :: nil) => idp
+\func test'' : sort (2 :: 1 :: 2 :: 4 :: nil) (<) = (1 :: 2 :: 2 :: 4 :: nil) => idp
 
 -- 3. Докажите ассоциативность && и ||.
 
