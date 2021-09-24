@@ -14,7 +14,7 @@
 
 \func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs
   | nil => idp
-  | :: a xs => pmap (a `::) (++-assoc xs ys zs)
+  | :: a xs => pmap (a ::) (++-assoc xs ys zs)
 
 -- 4. Докажите, что reverse (reverse xs) = xs, где reverse определен через ++.
 
@@ -24,7 +24,7 @@
 
 \func ++nil-is-id {A : \Type} (xs : List A) : xs ++ nil = xs \elim xs
   | nil => idp
-  | :: x xs => pmap (x `::) (++nil-is-id xs)
+  | :: x xs => pmap (x ::) (++nil-is-id xs)
 
 -- Это утверждение будет полезно для доказательства.
 
@@ -38,7 +38,7 @@
 
 \func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs \elim xs
   | nil => idp
-  | :: a xs => reverse++ (reverse xs) (a :: nil) *> pmap (a `::) (reverse-isInvolutive xs)
+  | :: a xs => reverse++ (reverse xs) (a :: nil) *> pmap (a ::) (reverse-isInvolutive xs)
 
 -- 5. Докажите дистрибутивность умножения над сложением для натуральных чисел.
 
@@ -63,3 +63,7 @@
     (sym (pmap ((n * m) `+) (+-assoc (n * k) n n))) *> --  n * m + (n * k + n + n)
     (pmap ((n * m) `+) (+-comm (n * k + n) n)) *>      --  n * m + (n + (n * k + n))
     (sym (+-assoc (n * m) n (n * k + n)))              -- (n * m + n) + (n * k + n)
+
+\func ldistr' (n m k : Nat) : n * (m + k) = n * m + n * k \elim k
+  | 0 => idp
+  | suc k => pmap (`+ n) (ldistr' n m k) *> +-assoc _ _ _
