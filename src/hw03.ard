@@ -1,13 +1,20 @@
+\import Meta
+\import Paths (pmap2)
 \import Utils
-\open Nat(+,*)
+\import lect03
+\open Nat (+, *)
 
 -- 1. Чему равно fileTest (в нормальной форме)? Докажите это.
+\func normFileTest : fileTest = (foobar, 8, 13, 55, 18, 21) => idp
 
 -- 2. Чему равно M5.t''' (в нормальной форме)? Докажите это.
+\func normM5t''' : M5.t''' = ((82, 42, 61, 82, 34, 42, 61, 29), 25, (42, 29)) => idp
 
 -- 3. Докажите ассоциативность ++.
 
-\func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) => {?}
+\func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs
+  | nil => idp
+  | :: a xs => pmap (a `::) (++-assoc xs ys zs)
 
 -- 4. Докажите, что reverse (reverse xs) = xs, где reverse определен через ++.
 
@@ -15,13 +22,44 @@
   | nil => nil
   | :: x xs => reverse xs ++ x :: nil
 
+\func ++nil-is-id {A : \Type} (xs : List A) : xs ++ nil = xs \elim xs
+  | nil => idp
+  | :: x xs => pmap (x `::) (++nil-is-id xs)
+
 -- Это утверждение будет полезно для доказательства.
-\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs => {?}
 
-\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => {?}
+\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs \elim xs, ys
+  | nil, nil => idp
+  | nil, :: y ys => sym (++nil-is-id (reverse ys ++ y :: nil))
+  | :: x xs, nil => pmap (`++ (x :: nil)) (pmap reverse (++nil-is-id xs))
+  | :: x xs, :: y ys =>
+    pmap (`++ (x :: nil)) (reverse++ xs (y :: ys)) *>
+    ++-assoc (reverse ys ++ y :: nil) (reverse xs) (x :: nil)
 
--- 5. Докажите дистрибутивность умножения над сложением для натуральных чисел (выберите 1 из двух вариантов).
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs \elim xs
+  | nil => idp
+  | :: a xs => reverse++ (reverse xs) (a :: nil) *> pmap (a `::) (reverse-isInvolutive xs)
 
-\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n => {?}
+-- 5. Докажите дистрибутивность умножения над сложением для натуральных чисел.
 
-\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n \elim n
+  | 0 => idp
+  | suc n =>
+    (pmap (`+ (m + k)) (rdistr n m k)) *>             -- (m * n + k * n) + (m + k)
+    (+-assoc (m * n) (k * n) (m + k)) *>              --  m * n + (k * n + (m + k))
+    (pmap ((m * n) `+) (+-comm (k * n) (m + k))) *>   --  m * n + ((m + k) + k * n)
+    (pmap ((m * n) `+) (+-assoc m k (k * n))) *>      --  m * n + (m + (k + k * n))
+    (sym (+-assoc (m * n) m (k + k * n))) *>          -- (m * n + m) + (k + k * n))
+    (sym (pmap ((m * n + m) `+) (+-comm (k * n) k)))  -- (m * n + m) + (k * n + k)
+
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k \elim m, k
+  | 0, 0 => idp
+  | 0, suc k => idp
+  | suc m, 0 => idp
+  | suc m, suc k =>
+    (+-assoc (n * (m + k)) n n) *>                     --  n * (m + k) + (n + n)
+    (pmap (`+ (n + n)) (ldistr n m k)) *>              -- (n * m + n * k) + (n + n)
+    (+-assoc (n * m) (n * k) (n + n)) *>               --  n * m + (n * k + (n + n))
+    (sym (pmap ((n * m) `+) (+-assoc (n * k) n n))) *> --  n * m + (n * k + n + n)
+    (pmap ((n * m) `+) (+-comm (n * k + n) n)) *>      --  n * m + (n + (n * k + n))
+    (sym (+-assoc (n * m) n (n * k + n)))              -- (n * m + n) + (n * k + n)
