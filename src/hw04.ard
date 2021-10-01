@@ -144,9 +144,9 @@
 \func id' {A : \Type 1} (a : A) => a
 
 \func idTest1 : \Pi (A : \Type0) -> A -> A => id' (id' id)
---               ^^^  ^^^
---                1    1, так как id и (id' id) упоминают только \Type0
+--                                            ^^^  ^^^
+--                                             1    1, так как id и (id' id) упоминают только \Type0
 
 \func idTest2 : \Pi (A : \Type0) -> \Type0 => id' Maybe
---               ^^^
---                1, так как Maybe упоминает только \Type0
+--                                            ^^^
+--                                             1, так как Maybe упоминает только \Type0
