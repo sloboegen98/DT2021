@@ -8,10 +8,12 @@
 
 \func fac-Nat-rec (n : Nat) : Nat =>
   Nat-rec Nat 1
-      (\lam x y => \case x \with {
-        | 0 => 1 | suc x => (suc x) * y
-      })
-      (suc n)
+      (\lam x y =>  (suc x) * y)
+      n
+
+--\func test-fac-Nat-rec : fac-Nat-rec 2 = 2 => idp
+--\func test-fac-Nat-rec' : fac-Nat-rec 0 = 1 => idp
+--\func test-fac-Nat-rec'' : fac-Nat-rec 4 = 24 => idp
 
 -- 2. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
 
@@ -177,14 +179,9 @@
 
 \func vnil-rightId {A : \Type} {n : Nat} (xs : Vec A n) : transport (Vec A) (+-comm 0 n) (xs v++ vnil) = xs \elim n, xs
   | 0, vnil => idp
-  | suc n, vcons a xs => transport-vcons a (xs v++ vnil) (+-comm 0 n) *> pmap (vcons a) (vnil-rightId xs)
+  | suc n, vcons a xs => v++-assoc.transport-vcons a (xs v++ vnil) (+-comm 0 n) *> pmap (vcons a) (vnil-rightId xs)
   \where {
     \func \infixl 4 v++ {A : \Type} {n m : Nat} (xs : Vec A n) (ys : Vec A m) : Vec A (m +' n) \elim n, xs
       | 0, vnil => ys
       | suc n, vcons x xs => vcons x (xs v++ ys)
-
-    \func transport-vcons {A : \Type} (a : A) {n m : Nat} (xs : Vec A n) (p : n = m)
-      : transport (Vec A) (Utils.pmap suc p) (vcons a xs) = vcons a (transport (Vec A) p xs)
-    \elim p
-      | idp => idp
   }
