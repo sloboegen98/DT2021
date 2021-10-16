@@ -1,45 +1,114 @@
+\import Algebra.Meta
+\import Meta
+\import Paths (pmap2, transportInv)
+\import Paths.Meta
 \import Utils
 \import lect06
-\open Nat(+)
+\import lect05 (funExt)
+\import hw01 (gcd)
+\open Nat (+)
 
 -- 1. Определите функцию swap несколькими способами.
 
 -- При помощи \cowith и доступа к полям.
-\func swap {A B : \Type} (p : Pair A B) : Pair B A => {?}
+
+\func swap {A B : \Type} (p : Pair A B) : Pair B A \cowith
+  | fst_ => p.snd_
+  | snd_ => p.fst_
 
 -- При помощи \new и паттерн матчинга.
-\func swap' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+
+\func swap' {A B : \Type} (p : Pair A B) : Pair B A \elim p
+  | (a,b) => \new Pair { | fst_ => b | snd_ => a }
 
 -- При помощи \new и доступа к полям.
-\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+
+\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => \new Pair { | fst_ => p.snd_ | snd_ => p.fst_ }
 
 -- 2. Докажите, что swap (swap p) = p.
 
-\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => {?}
+\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => idp
 
 -- 3. Докажите, что тип PosNat 0 пустой, а тип PosNat 1 нет.
 
-\func zero-isNotPos (p : PosNat 0) : Empty => {?}
+\func zero-isNotPos (p : PosNat 0) : Empty => p.p
 
-\func one-isPos : PosNat 1 => {?}
+\func one-isPos : PosNat 1 => \new PosNat { | p => () }
 
 -- 4. Определите \record, состоящий из пар взаимно простых натуральных чисел.
 --    Определите тип, состоящий из натуральных чисел, взаимно простых с 60.
+
+\record MutuallyPrimeNat (n m : Nat) (gcd-eq-1 : gcd n m = 1)
+
+\func MutuallyPrime60 => MutuallyPrimeNat { | n => 60 }
+
+\func test60 : MutuallyPrime60 => \new MutuallyPrimeNat { | m => 43 | gcd-eq-1 => idp }
 
 -- 5. Закончите определение класса монад. Этот класс должен содержать все монадные законы и реализовывать все поля из класса функторов.
 
 \class Monad \extends Functor
   | return {A : \Set} : A -> F A
   | \infixl 1 >>= {A B : \Set} : F A -> (A -> F B) -> F B
+  | left-id {A B : \Set} (a : A) (k : A -> F B) : (return a >>= k) = k a
+  | right-id {A : \Set} (t : F A) : (t >>= return) = t
+  | >>=-assoc {A B C : \Set} (t : F A) (k : A -> F B) (k' : B -> F C) : ((t >>= k) >>= k') = (t >>= (\lam x => k x >>= k'))
+  | fmap => \lam f fa => fa >>= (\lam a => return (f a))
+  | fmap-id t => right-id t
+  | fmap-comp f g t => rewrite >>=-assoc
+      (pmap (t >>=)
+          (funExt _ (\lam a => sym (left-id (f a) (\lam x => return (g x)))))
+      )
 
 -- 6. Определите \instance Monad для Maybe.
 
-\instance MaybeMonad : Monad Maybe => {?}
+\instance MaybeMonad : Monad Maybe => \new Monad {
+  | return => just
+  | >>= m f => \case m \with {
+    | nothing => nothing | just a => f a
+  }
+  | left-id a k => idp
+  | right-id t => \case \elim t \with {
+    | nothing => idp | just a => idp
+  }
+  | >>=-assoc t k k' => \case \elim t \with {
+    | nothing => idp | just a => idp
+  }
+}
 
 -- 7. Определите \instance Monad для State и State'.
 
 \record State (S A : \Type)
   | state : S -> \Sigma S A
 
+\func createState {S A : \Type} (f : S -> \Sigma S A) : State S A => \new State { | state => f }
+
+\func runState {S A : \Type} (st : State S A) : S -> \Sigma S A => st.state
+
+\instance StateMonad {S : \0-Type} : Monad (\lam (A : \Type) => State S A)
+  | return {A : \Set} (x : A) => createState (\lam s => (s, x))
+  | >>= {A B : \Set} (sa : State S A) (k : A -> State S B) =>
+    createState (\lam (s : S) => \case runState sa s \with {
+    (s', x) => runState (k x) s'
+    })
+  | left-id {A B : \Set} (a : A) (k : A -> State S B) => idp
+  | right-id {A : \Set} (t : State S A) => idp
+  | >>=-assoc {A B C : \Set} (t : State S A) (k : A -> State S B) (k' : B -> State S C) => idp
+
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
+
+\func createState' {S A : \Type} (f : S -> \Sigma S A) : State' S A => state' f
+
+\func runState' {S A : \Type} (st : State' S A) : S -> \Sigma S A => \case st \with {
+  | state' f => f
+}
+
+\instance StateMonad' {S : \0-Type} : Monad (\lam A => State' S A)
+  | return {A : \Set} (x : A) => createState' (\lam s => (s, x))
+  | >>= {A B : \Set} (sa : State' S A) (k : A -> State' S B) =>
+    createState' (\lam (s : S) => \case runState' sa s \with {
+      | (s', x) => runState' (k x) s'
+    })
+  | left-id {A B : \Set} (a : A) (k : A -> State' S B) => cases (k a) idp
+  | right-id {A : \Set} (t : State' S A) => cases t idp
+  | >>=-assoc {A B C : \Set} (t : State' S A) (k : A -> State' S B) (k' : B -> State' S C) => cases t idp
