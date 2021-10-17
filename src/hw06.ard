@@ -67,12 +67,8 @@
     | nothing => nothing | just a => f a
   }
   | left-id a k => idp
-  | right-id t => \case \elim t \with {
-    | nothing => idp | just a => idp
-  }
-  | >>=-assoc t k k' => \case \elim t \with {
-    | nothing => idp | just a => idp
-  }
+  | right-id t => cases t idp
+  | >>=-assoc t k k' => cases t idp
 }
 
 -- 7. Определите \instance Monad для State и State'.
