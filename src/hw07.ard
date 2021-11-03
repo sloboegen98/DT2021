@@ -1,10 +1,18 @@
+\import Meta
+\import Paths.Meta
 \import Utils
+\import hw02 (tail)
+\import hw04
+\import lect05 (funExt)
 \import lect07
-\open Nat(+,*)
+\open Nat (+, *)
 
 -- 1. Определите предикат принадлежности элемента списку.
 
-\data In {A : \Type} (a : A) (xs : List A)
+\data In {A : \Type} (a : A) (xs : List A) \with
+  | a, :: x xs => { in-list (a = x) | go-next (In a xs) }
+
+\func testIn : In 2 (1 :: 2 :: nil) => go-next (in-list idp)
 
 -- Optional:
 -- 2. Докажите эквивалентность четырех различных определений LessOrEq: lessOrEq, lessOrEq', LessOrEq и LessOrEq'.
@@ -12,48 +20,152 @@
 -- 3. Определите рефлексивное транзитивное замыкание отношения.
 --    То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
 
-\data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+\data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A) \elim x, y
+  | x, y => RClos-refl (x-eq-y : x = y) (xy : R x y)
+  | x, y => RClos-trans (z : A) (xz : R x z) (zy : R z y)
 
 -- 4. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
 
 \func ReflTransClosure-lem {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
-  : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y
-  => {?}
+  : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y => \lam x y => (ReflTransClousre-lem-> R refl trans x y,
+                                                                      ReflTransClosure-lem<- R refl trans x y)
+  \where {
+    \func ReflTransClousre-lem-> {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x)
+                                 (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z) (x y : A)
+      : R x y -> ReflTransClosure R x y =>
+      RClos-trans y __ (refl y)
+
+    \func ReflTransClosure-lem<- {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x)
+                                 (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z) (x y : A)
+      : ReflTransClosure R x y -> R x y =>
+      \case __ \with {
+        | RClos-refl _ r => r
+        | RClos-trans z xz zy => trans x z y xz zy
+      }
+  }
+
 
 -- 5. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys".
 
+\data Sublist {A : \Type} (xs ys : List A) \with
+  | nil, _ => nil-sublist
+  | :: x xs, :: y ys => in-sublist (x = y) (Sublist xs ys)
+  | xs, :: y ys =>  non-in-sublist (Sublist xs ys)
+
 -- 6. Докажите, что Sublist (filter p xs) xs для любых p и xs.
+
+\func Sublist-filter {A : \Type} (p : A -> Bool) (xs : List A) : Sublist (filter p xs) xs \elim xs
+  | nil => nil-sublist
+  | :: x xs => cases (p x) \with {
+    | true => in-sublist idp (Sublist-filter p xs)
+    | false => non-in-sublist (Sublist-filter p xs)
+  }
 
 -- 7. Определите filter через if, а не через \case.
 --     Докажите для этой версии filter лемму filter-lem.
 
-\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A => {?}
+\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | :: x xs => if (p x) (x :: filter' p xs) (filter' p xs)
 
-\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : LessOrEq (length (filter' p xs)) (length xs) => {?}
+\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : LessOrEq (length (filter' p xs)) (length xs) \elim xs
+  | nil => z<=_
+  | :: x xs =>
+    \case p x \as b \return
+    LessOrEq (length (if b (x :: filter' p xs) (filter' p xs))) (suc (length xs))
+    \with {
+      | true => s<=s (filter-lem p xs)
+      | false => <=-step-lem (filter-lem p xs)
+    }
 
 -- 8. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции.
+
+\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x =>
+  \case f true \as tru, idp : f true = tru, f false \as fls, idp : f false = fls, \elim x \with {
+    | true, p, _, p', true => rewrite (p, p) p
+    | true, p, true, p', false => rewrite (p', p) p
+    | _, p, false, p', false => rewrite (p', p') p'
+    | false, p, true, p', true => rewrite (p, p') p
+    | false, p, true, p', false => rewrite (p', p) p'
+    | false, p, false, p', true => rewrite (p, p') p'
+  }
 
 -- 9. Докажите, что предикат isEven разрешим.
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
 
-\func isEven-dec : DecPred isEven => {?}
+\func isEven-dec : DecPred isEven => isEven-helper __
+  \where {
+    \func isEven-helper (n : Nat) : Decide (isEven n) \elim n
+      | 0 => yes (0, idp)
+      | 1 => no (\lam ie1 => \case ie1.1 \as k, idp : k = ie1.1 \with {
+        | 0, p => \case (rewrite (sym p) ie1.2)
+        | suc k, p => \case (rewrite (sym p) ie1.2)
+      })
+      | suc (suc ppn) =>
+        \case (isEven-helper ppn) \with {
+          | yes a => yes (suc a.1, rewrite (sym a.2) idp)
+          | no nev-ppn => no (\lam ev-n => nev-ppn (pred ev-n.1, pred-2 (pmap pred (pmap pred ev-n.2))))
+        }
+
+    \func pred-2 {n k : Nat} (p : n = pred (pred (2 * k))) : n = 2 * pred k \elim n, k
+      | 0, 0 => idp
+      | 0, suc k => p
+      | suc n, 0 => p
+      | suc n, suc k => p
+  }
 
 -- 10. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо.
 
+\func headDefault {A : \Type} (def : A) (xs : List A) : A \elim xs
+  | nil => def
+  | :: a xs => a
+
 \instance ListEq {A : \Type} (dec : Eq A) : Eq (List A)
-  | decideEq => {?}
+  | decideEq (xs ys : List A) : Decide (xs = ys) \with {
+    | nil, nil => yes idp
+    | nil, :: y ys => no (\case __)
+    | :: x xs, nil => no (\case __)
+    | :: x xs, :: y ys => \case decideEq xs ys, dec.decideEq x y \with {
+      | yes xs-eq-ys, yes x-eq-y => yes (pmap2 (::) x-eq-y xs-eq-ys)
+      | _, no x-ne-y => no (\lam p => x-ne-y (pmap (headDefault x) p))
+      | no xs-ne-ys, yes _ => no (\lam p => xs-ne-ys (pmap tail p))
+    }
+  }
 
 -- 11. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
 
-\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p => {?}
+\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p =>
+  funExt (\lam _ => Bool)
+      (\lam a => unfold (FromDecToBool, FromBoolToDec)
+          (cases (p a) \with {
+            | true => idp
+            | false => idp
+          })
+      )
 
 -- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
 -- Для этого введем эквивалентность предикатов.
 
 \func dbd {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P))
-  : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x
-  => {?}
+  : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x => \lam x => (eqvBoolDec-> P x, eqvBoolDec<- P x)
+  \where {
+    \func eqvBoolDec-> {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) (x : A)
+      : (FromBoolToDec (FromDecToBool P)).1 x -> P.1 x =>
+      unfold (FromBoolToDec, FromDecToBool)
+          (\lam fromto => \case P.2 x \as p2x, idp : P.2 x = p2x \with {
+            | yes a, _ => a
+            | no n, q => absurd (\case (rewrite q fromto))
+          })
+
+    \func eqvBoolDec<- {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) (x : A)
+      : P.1 x -> (FromBoolToDec (FromDecToBool P)).1 x =>
+      \lam p1x => unfold (FromBoolToDec, FromDecToBool)
+          (cases (P.2 x) \with {
+            | yes a => ()
+            | no n => n p1x
+          })
+  }
 
 -- Optional:
 -- 12. Парадокс Рассела показывает, что не существует множества всех множеств.
@@ -65,5 +177,5 @@
 -- Верно, что в общем случае существование такого утверждения влечет противоречие.
 -- Это легко доказать при помощи исключенного третьего, но утверждение верно и без него.
 -- Докажите этот факт.
-\func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty
-  => {?}
+
+\func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty => p (q (\lam a => p a a)) (q (\lam a => p a a))
