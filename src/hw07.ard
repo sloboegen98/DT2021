@@ -21,8 +21,8 @@
 --    То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
 
 \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A) \elim x, y
-  | x, y => RClos-refl (x-eq-y : x = y) (xy : R x y)
-  | x, y => RClos-trans (z : A) (xz : R x z) (zy : R z y)
+  | x, y => RClos-refl (x-eq-y : x = y)
+  | x, y => RClos-trans (z : A) (xz : R x z) (zy : ReflTransClosure R z y)
 
 -- 4. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
 
@@ -32,16 +32,13 @@
   \where {
     \func ReflTransClousre-lem-> {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x)
                                  (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z) (x y : A)
-      : R x y -> ReflTransClosure R x y =>
-      RClos-trans y __ (refl y)
+      : R x y -> ReflTransClosure R x y => \lam rxy => RClos-trans y rxy (RClos-refl idp)
 
     \func ReflTransClosure-lem<- {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x)
                                  (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z) (x y : A)
-      : ReflTransClosure R x y -> R x y =>
-      \case __ \with {
-        | RClos-refl _ r => r
-        | RClos-trans z xz zy => trans x z y xz zy
-      }
+                                 (rtc-xy : ReflTransClosure R x y) : R x y \elim rtc-xy
+      | RClos-refl x-eq-y => rewrite x-eq-y (refl y)
+      | RClos-trans z xz rtc-xy => trans x z y xz (ReflTransClosure-lem<- R refl trans z y rtc-xy)
   }
 
 
