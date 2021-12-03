@@ -44,11 +44,11 @@
 \func Or-elim {A B : \Prop} (C : Or A B -> \Prop)
               (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
               (p : A `Or` B) : C p =>
-  \let lm => {?}
---    Or-rec {A} {B} {\Sigma (ab : A `Or` B) (C ab)}
---      (\lam a => (inl a, f a))
---      (\lam b => (inr b, g b))
---      p \in rewrite (Path.inProp p lm.1) lm.2
+  \let rec =>
+    Or-rec {A} {B} {\Sigma (ab : A `Or` B) (C ab)}
+        (\lam a => (inl a, f a))
+        (\lam b => (inr b, g b))
+        p \in rewrite (Path.inProp p _) rec.2
 
 -- 4. Докажите, что тип утверждений является множеством.
 
@@ -56,8 +56,12 @@
 
 -- 5. Докажите, что функции Prop1-to-Prop2 и Prop2-to-Prop1 взаимно обратны и, как следствие, что Prop1 = Prop2.
 
-\func P1P2-P2P1-inv : \Pi (P : \Prop) -> Prop2-to-Prop1 (Prop1-to-Prop2 P) = P =>
-  \lam P => unfold Prop1-to-Prop2 (unfold Prop2-to-Prop1 {?})
+\func P1P2-P2P1-inv : \Pi (P : \Prop) -> P = Prop2-to-Prop1 (Prop1-to-Prop2 P) => {?}
+--  \lam P => unfold Prop1-to-Prop2 (unfold Prop2-to-Prop1 (\let | f => prop-isSet P
+--                                                               | x => unfold isProp (f (Prop2-to-Prop1' P Path.inProp)) \in
+--    path (\lam i => x (P1P2-P2P1-inv P) {?} @ i) ))
+
+--      Prop2-to-Prop1' P Path.inProp = P
 
 --\func P2P1-P1P2-inv : \Pi (P : \Prop) -> Prop1-to-Prop2 (Prop2-to-Prop1 P) = P => {?}
 
@@ -69,7 +73,10 @@
 
 \func isCogenerator (C : \Type) => \Pi {A B : \Set} (f g : A -> B) (p : \Pi (h : B -> C) -> h `o` f = h `o` g) -> f = g
 
-\func PropIsCogenerator : isCogenerator \Prop => {?}
+\func PropIsCogenerator : isCogenerator \Prop =>
+  \lam {A} {B} f g p => funExt _ (\lam a => \let | eq => p (__ = g a)
+                                                 | x => path (\lam i => pmap (__ a) eq @ i)
+                                            \in rewrite x idp)
 
 -- 6b. Тип X называется инъективным, если для любой функции f : A -> X и любой инъекции i : A -> B сущесвует функция l : B -> X такая, что l `o` i = f.
 --     Докажите, что \Prop инъективен.
@@ -79,28 +86,10 @@
 \func isInjective (X : \Type) =>
   \Pi {A B : \Type} (f : A -> X) (i : A -> B) (p : isInj i) -> \Sigma (l : B -> X) (l `o` i = f)
 
-
 -- Можно сделать только одно из упражнений 7a,7b на выбор.
 -- 7a. Докажите, что (Bool = Bool) = Bool.
 
---\func BoolAut : (Bool = Bool) = Bool =>
---  path (iso
---      (\lam p => {?})
---      (\lam x => {?})
---      {?}
---      {?})
+\func BoolAut : (Bool = Bool) = Bool => {?}
 
-\func BoolAut : (Bool = Bool) = Bool =>
-  equivalence=>equality
-      (\new Equiv {
-        | f => \lam t => equality=>equivalence _ _ t true
-        | ret => \case __ \with {
-          | true => {?}
-          | false => {?}
-        }
-        | ret_f => \lam x => {?}
-        | sec => {?}
-        | f_sec => {?}
-      })
 
 -- 7b. Докажите, что (n+m)-элементное множество равно размеченному объединению n- и m-элементных множеств.
