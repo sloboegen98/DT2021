@@ -1,15 +1,63 @@
-\import Utils
-\import lect12
+\import Prelude
+\import Data.List (List)
+\import Logic (TruncP, inP, truncP)
+\import Logic.Meta
+\import Meta
+\import Paths.Meta
+\import Utils (Empty, Not, sym)
+\import hw06
+\import hw07
+\import lect05 (funExt)
+\import lect08 (Perm)
+\import lect11 (Trunc)
+\import lect12 (isSur, isInj, in~)
 
 -- 1. Определите функцию negPred : Int -> Int такую, что negPred x = x, если x > 0, и negPred x = x - 1, если x <= 0.
 
-\func negPred (x : Int) : Int => {?}
+\func negPred (x : Int) : Int \elim x
+  | pos 0 => neg 1
+  | pos (suc n) => pos (suc n)
+  | neg (suc n) => neg (suc (suc n))
+
+\func testNegPred : negPred (pos 5) = pos 5 => idp
+
+\func testNegPred' : negPred (neg 5) = neg 6 => idp
+
+\func testNegPred0 : negPred (pos 0) = neg 1 => idp
 
 -- 2. Определите функции сложения и умножения для Int.
 
-\func \infixl 6 + (x y : Int) : Int => {?}
+\func \infixl 6 + (x y : Int) : Int \elim x, y
+  | 0, y => y
+  | pos (suc x), neg y => suc x Nat.- y
+  | pos x, pos y => pos (x Nat.+ y)
+  | neg x, pos y => y Nat.- x
+  | neg x, neg y => neg (x Nat.+ y)
 
-\func \infixl 7 * (x y : Int) : Int => {?}
+\func test+-1 : pos 4 + pos 42 = pos 46 => idp
+
+\func test+-2 : pos 42 + neg 42 = pos 0 => idp
+
+\func test+-3 : pos 1 + neg 12 = neg 11 => idp
+
+\func test+-4 : neg 21 + pos 2 = neg 19 => idp
+
+\func \infixl 7 * (x y : Int) : Int \elim x, y
+  | pos 0, _ => pos 0
+  | pos (suc x), pos y => pos (suc x Nat.* y)
+  | neg _, pos 0 => pos 0
+  | pos (suc x), neg y => neg (suc x Nat.* y)
+  | neg 0, neg y => pos 0
+  | neg (suc x), neg y => pos (suc x Nat.* y)
+  | neg x, pos (suc y) => neg (suc y Nat.* x)
+
+\func test*-1 : pos 4 * pos 3 = pos 12 => idp
+
+\func test*-2 : pos 0 * neg 42 = pos 0 => idp
+
+\func test*-3 : pos 4 * neg 2 = neg 8 => idp
+
+\func test*-4 : neg 3 * neg 2 = pos 6 => idp
 
 -- 3. Определите тип данных BinNat для бинарных натуральных чисел.
 --    У него должно быть три конструктора: для 0, для чисел вида 2*n и чисел вида 2*n+1.
@@ -17,6 +65,11 @@
 --    Используйте типы данных с условиями, чтобы вычислительно отождествить различные нули.
 
 \data BinNat
+  | binZero
+  | eBin BinNat \with {
+    | binZero => binZero
+  }
+  | oBin BinNat
 
 -- 4. Докажите, что функция pred сюръективна.
 
@@ -24,11 +77,13 @@
   | 0 => 0
   | suc n => n
 
-\func pred-is-sur : isSur pred => {?}
+\func pred-is-sur : isSur pred => \lam x => inP (suc x, idp)
 
 -- 5. Докажите, что функция suc не сюръективна.
 
-\func suc-is-not-sur (p : isSur suc) : Empty => {?}
+\func suc-is-not-sur (p : isSur suc) : Empty => \case p 0 \with {
+  | inP a => \case a.2
+}
 
 -- 6. Пусть f : A -> B и g : B -> C ─ некоторые функции.
 --    Докажите, что если f и g сюръективны, то g `o` f также сюръективна.
@@ -36,13 +91,26 @@
 
 \func \fixr 9 o {A B C : \Type} (g : B -> C) (f : A -> B) => \lam a => g (f a)
 
-\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur f) (q : isSur g) : isSur (g `o` f) => {?}
+\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur f) (q : isSur g) : isSur (g `o` f) =>
+  \lam c => \case (q c) \with {
+    | inP b => \case (p b.1) \with {
+      | inP a => inP (a.1, unfold o (rewrite a.2 b.2))
+    }
+  }
 
-\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur (g `o` f)) : isSur g => {?}
+\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSur (g `o` f)) : isSur g =>
+  \lam c => \case (p c) \with {
+    | inP q => inP (f q.1, q.2)
+  }
 
 -- 7. Определите множество конечных подмножеств множества A, то есть списков элементов A с точностью до перестановок и повторений элементов.
 
-\data Set (A : \Set) : \Set
+\truncated \data Set (A : \Set) : \Set
+  | setInit (List A)
+  | setPerm (xs ys : List A) (p : lect08.Perm xs ys) (i : I) \elim i {
+    | left => setInit xs
+    | right => setInit ys
+  }
 
 -- 8. Докажите теорему Кантора.
 
@@ -55,16 +123,31 @@
 -- Формально утверждение теоремы Кантора состоит из двух частей:
 -- "существует инъекция из A в Subs A" и "не существует сюръекции из A в Subs A".
 
-\func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f)
-  => {?}
+\func f=g-at-point {A B : \Set} {f g : A -> B} (p : f = g) : \Pi (x : A) -> f x = g x => \lam _ => rewrite p idp
 
-\func cantor2 (A : \Set) (f : A -> Subs A) (p : isSur f) : Empty
-  => {?}
+-- x → {x}
+
+\func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f) => (=, \lam x y p => rewrite (f=g-at-point p y) idp)
+
+-- \func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty => p (q (\lam a => p a a)) (q (\lam a => p a a))
+
+-- {x : Not (x in f (x))}
+
+\func cantor2 (A : \Set) (f : A -> Subs A) (p : isSur f) : Empty =>
+  \let T => p (\lam a => (f a) a -> Empty) \in
+    \case T \with {
+      | inP (a, eq) => contrProp (\lam _ _ => A-is-not-Not-A (f=g-at-point eq a)) (\lam _ => a)
+    }
+
+\func A-is-not-Not-A {A : \Prop} (p : A = Not A) : Empty =>
+  contrProp (rewrite (sym p) __) (rewrite p __)
 
 -- 9. Докажите, что in~ является сюръекцией.
 
-\func in~-sur {A : \Type} {R : A -> A -> \Type} : isSur (in~ {A} {R})
-  => {?}
+\func in~-sur {A : \Type} {R : A -> A -> \Type} : isSur (in~ {A} {R}) =>
+  cases __ \with {
+    | in~ a => inP (a, idp)
+  }
 
 -- Optional
 -- 10. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны.
