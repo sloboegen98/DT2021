@@ -6,7 +6,6 @@
 \import lect10(sigmaEq,isProp)
 \import lect11 (DecEq)
 \import lect12
-\import lect12_orig (in)
 
 -- 1. Тип данных Set.
 

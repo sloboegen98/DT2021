@@ -1,30 +1,73 @@
+\import Logic (inP, truncP)
+\import Meta
+\import Paths.Meta
 \import Utils
+\import lect05 (funExt)
+\import lect11 (propExt)
 \import lect12
 \import lect13
 
 -- 1. Докажите, что add x (add x s) = add x s и add x (add y s) = add y (add x s)
 
-\func add-idemp {S : SetSpec} (x : S.A) (s : S) : add x (add x s) = add x s
-  => {?}
+\func add-idemp {S : SetSpec} (x : S.A) (s : S) : add x (add x s) = add x s =>
+  setExt _ _ (\lam _ => (\lam p => \case (addProp p) \with {
+    | byLeft q => rewrite q addHead
+    | byRight q => q
+  } , addTail __))
 
-\func add-swap {S : SetSpec} (x y : S.A) (s : S) : add x (add y s) = add y (add x s)
-  => {?}
+\func add-swap {S : SetSpec} (x y : S.A) (s : S) : add x (add y s) = add y (add x s) =>
+  setExt _ _ (\lam _ =>
+      (\lam p =>
+           \case (addProp p) \with {
+             | byLeft q => rewrite q (addTail addHead)
+             | byRight q => \case addProp q \with {
+               | byLeft l => rewrite l addHead
+               | byRight r => addTail (addTail r)
+             }
+           }
+      , \lam p =>
+           \case (addProp p) \with {
+             | byLeft q => rewrite q (addTail addHead)
+             | byRight q => \case addProp q \with {
+               | byLeft l => rewrite l addHead
+               | byRight r => addTail (addTail r)
+             }
+           }) )
 
 -- 2. Докажите, что множество подмножеств является инстансом SetSpec
 
-\func subsets {A : \Set} : SetSpec {A} (A -> \Prop)
-  => {?}
+\func subsets {A : \Set} : SetSpec {A} (A -> \Prop) => \new SetSpec {
+  | emptySet _ => Empty
+  | add a s => \lam _ => s a
+  | isElem a s => s a
+  | setExt s s' p => funExt _ (\lam a => propExt (p a).1 (p a).2)
+  | emptySetProp a => \lam e => e
+  | addHead => {?}
+  | addTail sx => {?}
+  | addProp sx => {?}
+}
 
 -- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него.
 
-\func subsets-largest (S : SetSpec) : \Sigma (f : S -> (S.A -> \Prop)) (isInj f)
-  => {?}
+\func subsets-largest (S : SetSpec) : \Sigma (f : S -> (S.A -> \Prop)) (isInj f) => {?}
 
 -- 4. Определите функцию isEmpty для произвольного конечного множества и для ListSet.
 
-\func isEmptySet {S : FinSetSpec} (x : S) : Bool => {?}
+\func isEmptySet {S : FinSetSpec} (x : S) : Bool => \scase (setFin x) \with {
+  | inP (xs, _) => \case xs \with {
+    | nil => true
+    | :: _ _ => false
+  }
+  | truncP a a' i => {?}
+}
 
-\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool => {?}
+\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool \elim x
+  | in~ a => \case a \with {
+    | nil => true
+    | :: _ _ => false
+  }
+  | ~-quot r i => {?}
+--    isEmptyListSet (r @ i)
 
 -- 5. Определите функцию union {A : \Set} : S A -> S A -> S A для произвольного S A (удовлетворяющего FinSetSpec) и для ListSet.
 
