@@ -1,10 +1,10 @@
 \import Prelude
-\import Data.List (List)
+--\import Data.List (List)
 \import Logic (TruncP, inP, truncP)
 \import Logic.Meta
 \import Meta
 \import Paths.Meta
-\import Utils (Empty, Not, sym)
+\import Utils (<->, Empty, Not, sym, List)
 \import hw06
 \import hw07
 \import lect05 (funExt)
@@ -107,7 +107,7 @@
 
 \truncated \data Set (A : \Set) : \Set
   | setInit (List A)
-  | setPerm (xs ys : List A) (p : lect08.Perm xs ys) (i : I) \elim i {
+  | setPerm (xs ys : List A) (p : \Pi (x : A) -> In x xs <-> In x ys) (i : I) \elim i {
     | left => setInit xs
     | right => setInit ys
   }
