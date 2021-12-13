@@ -1,9 +1,15 @@
-\import Logic (inP, truncP)
+\import Algebra.Monoid.Solver
+\import Data.Bool (Bool, if, true, false)
+\import Homotopy.Sphere.Circle (OmegaS1)
+\import Logic (inP, propExt, truncP)
+\import Logic.Meta
 \import Meta
 \import Paths.Meta
-\import Utils
+\import Set
+\import Utils \hiding (if, Bool, true, false)
+\import hw12
 \import lect05 (funExt)
-\import lect11 (propExt)
+\import lect08
 \import lect12
 \import lect13
 
@@ -17,64 +23,224 @@
 
 \func add-swap {S : SetSpec} (x y : S.A) (s : S) : add x (add y s) = add y (add x s) =>
   setExt _ _ (\lam _ =>
-      (\lam p =>
-           \case (addProp p) \with {
-             | byLeft q => rewrite q (addTail addHead)
-             | byRight q => \case addProp q \with {
-               | byLeft l => rewrite l addHead
-               | byRight r => addTail (addTail r)
-             }
-           }
-      , \lam p =>
-           \case (addProp p) \with {
-             | byLeft q => rewrite q (addTail addHead)
-             | byRight q => \case addProp q \with {
-               | byLeft l => rewrite l addHead
-               | byRight r => addTail (addTail r)
-             }
-           }) )
+      (\case addProp __ \with {
+        | byLeft q => rewrite q (addTail addHead)
+        | byRight q => \case addProp q \with {
+          | byLeft l => rewrite l addHead
+          | byRight r => addTail (addTail r)
+        }
+      }
+      , \case addProp __ \with {
+        | byLeft q => rewrite q (addTail addHead)
+        | byRight q => \case addProp q \with {
+          | byLeft l => rewrite l addHead
+          | byRight r => addTail (addTail r)
+        }
+      }) )
 
 -- 2. Докажите, что множество подмножеств является инстансом SetSpec
 
 \func subsets {A : \Set} : SetSpec {A} (A -> \Prop) => \new SetSpec {
-  | emptySet _ => Empty
-  | add a s => \lam _ => s a
+  | emptySet => \lam a => Not (a = a)
+  | add a s => \lam a' => Or (a = a') (s a')
   | isElem a s => s a
   | setExt s s' p => funExt _ (\lam a => propExt (p a).1 (p a).2)
-  | emptySetProp a => \lam e => e
-  | addHead => {?}
-  | addTail sx => {?}
-  | addProp sx => {?}
+  | emptySetProp a => __ idp
+  | addHead => Or.byLeft idp
+  | addTail sx => Or.byRight sx
+  | addProp sx => \case sx \with {
+    | byLeft y=x => Or.byLeft (sym y=x)
+    | byRight sx => Or.byRight sx
+  }
 }
 
 -- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него.
 
-\func subsets-largest (S : SetSpec) : \Sigma (f : S -> (S.A -> \Prop)) (isInj f) => {?}
+\func subsets-largest (S : SetSpec) : \Sigma (f : S -> (S.A -> \Prop)) (isInj f) =>
+  (\lam s a => isElem a s,
+   \lam x y p => setExt x y (\lam e => (propExt.dir (f=g-at-point p e), propExt.conv (f=g-at-point p e))))
 
 -- 4. Определите функцию isEmpty для произвольного конечного множества и для ListSet.
 
-\func isEmptySet {S : FinSetSpec} (x : S) : Bool => \scase (setFin x) \with {
-  | inP (xs, _) => \case xs \with {
-    | nil => true
-    | :: _ _ => false
-  }
-  | truncP a a' i => {?}
+\func isEmptyList {A : \Set} (xs : List A) : Utils.Bool \elim xs
+  | nil => Utils.true
+  | :: _ _ => Utils.false
+
+\func emptyEqLists {A : \Set} (xs ys : List A) (p : EqList xs ys) : isEmptyList xs = isEmptyList ys \elim xs, ys, p
+  | nil, nil, p => idp
+  | nil, :: y ys, p => \let (f, g) => p y \in \case g (here idp)
+  | :: x xs, nil, p => \let (f, g) => p x \in \case f (here idp)
+  | :: x xs, :: y ys, p => idp
+
+\func isEmptySet {S : FinSetSpec} (x : S) : Utils.Bool => \case rewriteI listSet=Set x \with {
+  | in~ xs => isEmptyList xs
+  | ~-quot {xs} {ys} r i => emptyEqLists xs ys r @ i
 }
 
-\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool \elim x
-  | in~ a => \case a \with {
-    | nil => true
-    | :: _ _ => false
-  }
-  | ~-quot r i => {?}
---    isEmptyListSet (r @ i)
+\func isEmptyListSet {A : \Set} (x : ListSet A) : Utils.Bool \elim x
+  | in~ xs => isEmptyList xs
+  | ~-quot {xs} {ys} r i => emptyEqLists xs ys r @ i
 
 -- 5. Определите функцию union {A : \Set} : S A -> S A -> S A для произвольного S A (удовлетворяющего FinSetSpec) и для ListSet.
 
+\func isElemForConcat {A : \Set} (x : A) (xs ys : List A) (p : In x (xs ++ ys)) : Or (In x xs) (In x ys) \elim xs, ys, p
+  | nil, :: y ys, here p => Or.byRight (here p)
+  | nil, :: y ys, there p => Or.byRight (there p)
+  | :: x' xs, nil, here p => Or.byLeft (here p)
+  | :: x' xs, nil, there p => Or.byLeft (rewrite ++-nil (there p))
+  | :: x' xs, :: y ys, here p => Or.byLeft (here p)
+  | :: x' xs, :: y ys, there p => \case isElemForConcat x xs (y :: ys) p \with {
+    | byLeft l => Or.byLeft (there l)
+    | byRight r => Or.byRight r
+  }
+  \where {
+    \func ++-nil {A : \Set} (xs : List A) : xs = xs ++ nil \elim xs
+      | nil => idp
+      | :: x xs => pmap (x ::) (++-nil xs)
+  }
+
+\func isElemSaves {A : \Set} (x : A) (xs ys : List A) (p : Or (In x xs) (In x ys)) : In x (xs ++ ys) \elim xs, ys, p
+  | nil, nil, byLeft l => l
+  | nil, nil, byRight r => r
+  | nil, :: y' ys, byLeft l => \case l
+  | nil, :: y' ys, byRight r => r
+  | :: x' xs, nil, byLeft l => \case l \with {
+    | here p => here p
+    | there p => there (isElemSaves x xs nil (Or.byLeft p))
+  }
+  | :: x' xs, nil, byRight r => \case r
+  | :: x' xs, :: y' ys, byLeft l => \case l \with {
+    | here p => here p
+    | there p => there (isElemSaves x xs (y' :: ys) (Or.byLeft p))
+  }
+  | :: x' xs, :: y' ys, byRight r => \case r \with {
+    | here p => \let rewp => rewrite p r \in rewrite p (there (isElemSaves y' xs (y' :: ys) (Or.byRight rewp)))
+    | there p => there (isElemSaves x xs (y' :: ys) (Or.byRight r))
+  }
+
+\func concatEquals {A : \Set} (xs ys s1 s2 : List A) (p : EqList xs ys) (q : EqList s1 s2) : EqList (xs ++ s1) (ys ++ s2) =>
+  \lam e => (
+    \case isElemForConcat e xs s1 __ \with {
+      | byLeft l => isElemSaves e ys s2 (Or.byLeft ((p e).1 l))
+      | byRight r => isElemSaves e ys s2 (Or.byRight ((q e).1 r))
+    },
+    \case isElemForConcat e ys s2 __ \with {
+      | byLeft l => isElemSaves e xs s1 (Or.byLeft ((p e).2 l))
+      | byRight r => isElemSaves e xs s1 (Or.byRight ((q e).2 r))
+    }
+  )
+
+\func selfEqList {A : \Set} {s : List A} : EqList s s =>
+  \lam _ => (\lam x => x, \lam x => x)
+
+\func union {S : FinSetSpec} (s1 s2 : S) : S =>
+  rewriteI listSet=Set (unionListSet (rewrite listSet=Set s1) (rewrite listSet=Set s2))
+
+\func unionListSet {A : \Set} (s1 s2 : ListSet A) : ListSet A \elim s1, s2
+  | in~ xs, in~ ys => in~ (xs ++ ys)
+  | in~ s, ~-quot {xs} {ys} r i => ~-quot (concatEquals s s xs ys selfEqList r) i
+  | ~-quot {xs} {ys} r i, in~ s => ~-quot (concatEquals xs ys s s r selfEqList) i
+
 -- 6. Определите функцию intersection {A : DecSet} : S A -> S A -> S A для произвольного S A (удовлетворяющего FinSetSpec) и для ListSet.
+--
+
+
+\func inList {A : DecSet} (a : A) (xs : List A) : Bool \elim xs
+  | nil => false
+  | :: x xs => cases (A.decideEq a x) \with {
+    | yes e => true
+    | no n => inList a xs
+  }
+
+\func intersectionList {A : DecSet} (xs ys : List A) : List A \elim xs
+  | nil => nil
+  | :: a xs => \case inList a ys \with {
+    | true => a :: intersectionList xs ys
+    | false => intersectionList xs ys
+  }
+
+\func intersectWithNil {A : DecSet} (xs : List A) : intersectionList xs nil = nil \elim xs
+  | nil => idp
+  | :: _ xs => intersectWithNil xs
+
+\func intersectionList-sym {A : DecSet} (xs ys : List A) : intersectionList xs ys = intersectionList ys xs => {?}
+
+\func lemma {A : DecSet} (xs ys : List A) : EqList (intersectionList xs ys) (intersectionList ys xs) \elim xs, ys
+  | nil, nil => {?}
+  | nil, :: a ys => {?}
+  | :: a xs, nil => {?}
+  | :: a xs, :: a1 ys => {?}
+
+\func elemInBothLists {A : DecSet} (a : A) (xs ys : List A) (p : In a (intersectionList xs ys)) : \Sigma (In a xs) (In a ys) \elim xs, ys, p
+  | nil, nil, ()
+  | :: x xs, nil, p => \case rewrite intersectWithNil p
+  | :: x xs, :: y ys, p => {?}
+
+\func inListEqLists {A : DecSet} (a : A) (xs ys : List A) (p : EqList xs ys) : inList a xs = inList a ys =>
+  \case inList a xs \as q, idp : inList a xs = q \with {
+    | true, q => sym (rewrite q (inListEqLists-true a xs ys p q))
+    | false, q => sym (rewrite q (inListEqLists-false a xs ys p q))
+  } \where {
+  \func inListEqLists-true {A : DecSet} (a : A) (xs ys : List A) (p : EqList xs ys) (q : inList a xs = true) : inList a ys = true \elim xs
+    | nil => contradiction
+    | :: x xs => {?}
+
+  \func inListEqLists-false {A : DecSet} (a : A) (xs ys : List A) (p : EqList xs ys) (q : inList a xs = false) : inList a ys = false =>
+    {?}
+}
+
+\func inIntersectionEqLists {A : DecSet} (a : A) (xs ys : List A) (p : EqList xs ys) (q : In a xs) : In a ys \elim xs, q
+  | :: x xs, here h => \let eq => rewriteI h p \in (eq a).1 (here idp)
+  | :: x xs, there t => (p a).1 (there t)
+
+\func EqList-sym {A : DecSet} {xs ys : List A} (p : EqList xs ys) : EqList ys xs \elim xs, ys, p
+  | nil, nil, p => selfEqList
+  | nil, :: y ys, p => \case (p y).2 (here idp)
+  | :: x xs, nil, p => \case (p x).1 (here idp)
+  | :: x xs, :: y ys, p => \lam e => ((p e).2, (p e).1)
+
+\func intersectionEq-left {A : DecSet} (xs ys s : List A) (p : EqList xs ys)
+  : EqList (intersectionList s xs) (intersectionList s ys) \elim s
+  | nil => selfEqList
+  | :: a s => rewrite (inListEqLists a xs ys p) (mcases \with {
+    | true => \lam e =>
+        (\case __ \with {
+          | here q => here q
+          | there q => there (
+            inIntersectionEqLists e
+                (intersectionList s xs)
+                (intersectionList s ys)
+                (intersectionEq-left xs ys s p)
+                q)
+        },
+         \case __ \with {
+           | here q => here q
+           | there q => there (
+             inIntersectionEqLists e
+                 (intersectionList s ys)
+                 (intersectionList s xs)
+                 (intersectionEq-left ys xs s (EqList-sym p))
+                 q
+           )
+         })
+    | false => intersectionEq-left xs ys s p
+  })
+
+\func intersectionEq-right {A : DecSet} (xs ys s : List A) (p : EqList xs ys)
+  : EqList (intersectionList xs s) (intersectionList ys s) =>
+  rewrite (intersectionList-sym xs s, intersectionList-sym ys s) (intersectionEq-left xs ys s p)
+
+\func intersection {A : DecSet} {S : FinSetSpec {A}} (s1 s2 : S) : S => {?}
+
+\func intersectionListSet {A : DecSet} (s1 s2 : ListSet A) : ListSet A \elim s1, s2
+  | in~ xs, in~ ys => in~ (intersectionList xs ys)
+  | in~ s, ~-quot {xs} {ys} r i => ~-quot (intersectionEq-left xs ys s r) i
+  | ~-quot {xs} {ys} r i, in~ s => ~-quot (intersectionEq-right xs ys s r) i
 
 -- 7. Мы не можем определить функция size в общем случае, но мы можем определить предикат S -> Nat -> \Prop, соответствующий \lam xs n => size xs <= n.
 --    Задайте этот предикат и докажите, что он эквивалентен обычному определению, если A -- разрешимо и S -- конечно.
+
+\func size<=n {S : SetSpec} (s : S) (n : Nat) : \Prop => ∃ (l : List S.A) (length l = n) (listToSet l = s)
 
 -- Optional
 -- 8. Определите предикат isFin : \Type -> \Prop так, чтобы множество \Sigma (P : A -> \Prop) (isFin (\Sigma (a : A) (P A))) удовлетворяло FinSetSpec, определите этот инстанс.
